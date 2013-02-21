@@ -168,11 +168,7 @@ class VCAP::CloudController::Config < VCAP::Config
   private
 
   def self.merge_defaults(config)
-    config[:runtimes_file] ||= File.join(config_dir, "runtimes.yml")
     config[:stacks_file] ||= File.join(config_dir, "stacks.yml")
-
-    config[:directories] ||= {}
-    config[:directories][:staging_manifests] ||= File.join(config_dir, "frameworks")
     config
   end
 end

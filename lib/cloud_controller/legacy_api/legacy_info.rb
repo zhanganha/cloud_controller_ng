@@ -49,15 +49,13 @@ module VCAP::CloudController
     end
 
     def runtime_info
-      rt_info = Models::Runtime.all.inject({}) do |result, runtime|
-        result.merge(runtime.name => {
-          :version => runtime.internal_info["version"],
-          :description => runtime.description,
-          :debug_modes=> runtime.internal_info["debug_modes"],
-        })
-      end
-
-      Yajl::Encoder.encode(rt_info)
+      {
+        :buildpack => {
+          :version => "N/A",
+          :description => "Old staging plugins deprecated. Only use buildpacks",
+          :debug_modes => %w[run suspend],
+        }
+      }
     end
 
     private
@@ -110,40 +108,22 @@ module VCAP::CloudController
 
     # this is a direct port of the legacy cc info.
     def legacy_framework_info
-      frameworks_info = {}
-      Models::Framework.each do |framework|
-        runtimes = []
-
-        framework.internal_info["runtimes"].each do |runtime|
-          runtime.keys.each do |runtime_name|
-            runtime = Models::Runtime[:name => runtime_name]
-            if runtime
-              runtimes <<  {
-                :name => runtime_name,
-                :description => runtime.description,
-                :version => runtime.internal_info["version"],
-              }
-            else
-              logger.warn(
-                "Manifest for #{framework.name} lists a runtime not " +
-                "present in runtimes.yml: #{runtime_name}. " +
-                "Runtime will be skipped."
-              )
-            end
-          end
-        end
-        frameworks_info[framework.name] = {
-          :name => framework.name,
-          :runtimes => runtimes,
-          :detection => framework.internal_info["detection"],
+      { "buildpack" =>
+        {
+          :name => "buildpack",
+          :runtimes => [runtime_info],
+          :detection => "*",
         }
-      end
-      frameworks_info
+      }
+    end
+
+    def runtime_info_encoded
+      Yajl::Encoder.encode(runtime_info)
     end
 
     def self.setup_routes
       get "/info",          :info
-      get "/info/runtimes", :runtime_info
+      get "/info/runtimes", :runtime_info_encoded
       get "/info/services", :service_info
     end
 

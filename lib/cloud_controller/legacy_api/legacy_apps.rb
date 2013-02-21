@@ -23,8 +23,8 @@ module VCAP::CloudController
     def create
       logger.debug "create app"
       req = request_from_legacy_create_json(body)
-      (_, _, resp) = VCAP::CloudController::App.new(config, logger, env, params, req).
-        dispatch(:create)
+      resp = VCAP::CloudController::App.new(config, logger, env, params, req).
+        dispatch(:create)[2]
 
       resp_hash = Yajl::Parser.parse(resp)
 
@@ -130,8 +130,8 @@ module VCAP::CloudController
       {
         :name => app.name,
         :staging => {
-          :model => app.framework.name,
-          :stack => app.runtime.name,
+          :model => "buildpack",
+          :stack => "buildpack",
         },
         :uris => app.uris,
         :instances => app.instances,
@@ -210,36 +210,21 @@ module VCAP::CloudController
         :space_guid => default_space.guid
       }
 
-      ["name", "instances", "state", "console", "debug"].each do |k|
+      %w[name instances state console debug].each do |k|
         req[k] = hash[k] if hash.has_key?(k)
       end
 
-      if staging = hash["staging"]
-        framework = nil
-        if framework_name = staging["framework"] || staging["model"]
-          framework = Models::Framework.find(:name => framework_name)
-          raise FrameworkInvalid.new(framework_name) unless framework
-          req[:framework_guid] = framework.guid
-        end
-
-        runtime_name = staging["runtime"] || staging["stack"]
-        runtime_name ||= default_runtime_for_framework(framework)
-        if runtime_name
-          runtime = Models::Runtime.find(:name => runtime_name)
-          raise RuntimeInvalid.new(runtime_name) unless runtime
-          req[:runtime_guid] = runtime.guid
-        end
-
+      if (staging = hash["staging"])
         req[:command] = staging["command"] if staging["command"]
       end
 
-      if resources = hash["resources"]
-        ["memory", "instances"].each do |k|
+      if (resources = hash["resources"])
+        %w[memory instances].each do |k|
           req[k] = resources[k] if resources[k]
         end
       end
 
-      if uris = hash["uris"]
+      if (uris = hash["uris"])
         req[:route_guids] = uris.map do |uri|
           # TODO: change when we allow subdomains
           (host, domain_name) = uri.split(".", 2)
@@ -290,16 +275,6 @@ module VCAP::CloudController
       decoded = Yajl::Parser.parse(old_json)
       translated = translate.call(decoded)
       Yajl::Encoder.encode(translated)
-    end
-
-    def default_runtime_for_framework(framework)
-      return unless framework
-      framework.internal_info["runtimes"].each do |runtime|
-        runtime.each do |runtime_name, runtime_info|
-          return runtime_name if runtime_info["default"] == true
-        end
-      end
-      nil
     end
 
     def self.setup_routes

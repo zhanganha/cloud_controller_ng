@@ -89,7 +89,6 @@ module VCAP::CloudController
       config = @config.dup
 
       if run_migrations
-        populate_framework_and_runtimes
         VCAP::CloudController::Models::QuotaDefinition.populate_from_config(config)
         VCAP::CloudController::Models::Stack.populate
       end
@@ -142,16 +141,6 @@ module VCAP::CloudController
       VCAP::CloudController::Config.configure(@config)
 
       logger.info "running on #{ENV["VMC_APP_HOST"]}" if running_in_cf?
-    end
-
-    # This isn't exactly the best place for this, but it is also temporary.  A
-    # seperate utility will get written for this
-    def populate_framework_and_runtimes
-      rt_file = @config[:runtimes_file]
-      Models::Runtime.populate_from_file(rt_file)
-
-      fw_dir = @config[:directories][:staging_manifests]
-      Models::Framework.populate_from_directory(fw_dir)
     end
 
     def create_app(config)

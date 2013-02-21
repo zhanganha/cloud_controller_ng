@@ -38,10 +38,6 @@ module VCAP::CloudController::RestController
     # @param [Sinatra::Base] sinatra The sinatra object associated with the
     # request.
     #
-    # We had been trying to keep everything relatively framework
-    # agnostic in the base api and everthing build on it, but, the need to call
-    # send_file changed that.
-    #
     def initialize(config, logger, env, params, body, sinatra = nil)
       @config  = config
       @logger  = logger
