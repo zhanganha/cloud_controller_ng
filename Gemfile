@@ -28,6 +28,8 @@ group :production do
 end
 
 group :development do
+  gem 'pry'
+  gem 'pry-debugger'
   gem "sqlite3"
   gem "ruby-graphviz"
 end
