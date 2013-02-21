@@ -19,7 +19,8 @@ module VCAP::CloudController
 
       let(:upload_handle) do
         LegacyStaging::DropletUploadHandle.new(app.guid).tap do |h|
-          h.upload_path = Tempfile.new("tmp_droplet")
+          h.droplet_upload_path = Tempfile.new("tmp_droplet")
+          h.artifact_cache_upload_path = Tempfile.new("tmp_droplet_cache")
         end
       end
 
@@ -51,6 +52,12 @@ module VCAP::CloudController
             expect {
               with_em_and_thread { stage }
             }.to change { LegacyStaging.droplet_exists?(app.guid) }.from(false).to(true)
+          end
+
+          it "stores the artifact cache" do
+            expect {
+              with_em_and_thread { stage }
+            }.to change { LegacyStaging.artifact_cache_exists?(app.guid) }.from(false).to(true)
           end
 
           it "updates droplet hash on the app" do
@@ -403,6 +410,13 @@ module VCAP::CloudController
         end
       end
 
+      let(:artifact_cache_uri) { "http://cache.me/5" }
+
+      before do
+        store_app_package(@app)
+        LegacyStaging.stub(:artifact_cache_uri).with(@app.guid).and_return(artifact_cache_uri)
+      end
+
       def request(async=false)
         AppStager.staging_request(@app, async)
       end
@@ -417,11 +431,16 @@ module VCAP::CloudController
       end
 
       it "includes app guid and download/upload uris" do
-        store_app_package(@app)
         request.tap do |r|
           r[:app_id].should == @app.guid
-          r[:download_uri].should match /^http/
-          r[:upload_uri].should match /^http/
+          r[:download_uri].should match(/^http/)
+          r[:upload_uri].should match(/^http/)
+        end
+      end
+
+      it "includes the uri for the app's artifact cache" do
+        request.tap do |r|
+          r[:artifact_cache_uri].should eq(artifact_cache_uri)
         end
       end
 

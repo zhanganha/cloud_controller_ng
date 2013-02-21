@@ -21,11 +21,14 @@ module VCAP::CloudController
     DROPLET_PATH = "/staging/droplets"
 
     class DropletUploadHandle
-      attr_accessor :id, :upload_path
+      attr_accessor :id, :droplet_upload_path, :artifact_cache_upload_path
 
       def initialize(id)
         @id = id
-        @upload_path = nil
+      end
+
+      def set_path(key, path)
+        send("#{key}_upload_path=", path)
       end
     end
 
@@ -35,8 +38,9 @@ module VCAP::CloudController
 
         opts = config[:droplets]
         @droplet_directory_key = opts[:droplet_directory_key] || "cc-droplets"
+        @artifact_cache_directory_key = opts[:artifact_cache_directory_key] || "cc-artifact-caches"
         @connection_config = opts[:fog_connection]
-        @directory = nil
+        clear_memoized_directories
       end
 
       def app_uri(id)
@@ -47,6 +51,10 @@ module VCAP::CloudController
         end
       end
 
+      def artifact_cache_uri(id)
+        staging_uri("/staging/artifact-cache/#{id}")
+      end
+
       def droplet_upload_uri(id)
         staging_uri("/staging/droplets/#{id}")
       end
@@ -55,7 +63,7 @@ module VCAP::CloudController
         if local?
           staging_uri("/staged_droplets/#{id}")
         else
-          droplet_uri(id)
+          file_uri(id, "droplet")
         end
       end
 
@@ -73,8 +81,8 @@ module VCAP::CloudController
       def destroy_handle(handle)
         return unless handle
         mutex.synchronize do
-          if handle.upload_path && File.exists?(handle.upload_path)
-            File.delete(handle.upload_path)
+          [handle.droplet_upload_path, handle.artifact_cache_upload_path].each do |path|
+            File.delete(path) if path && File.exists?(path)
           end
           upload_handles.delete(handle.id)
         end
@@ -87,13 +95,11 @@ module VCAP::CloudController
       end
 
       def store_droplet(guid, path)
-        File.open(path) do |file|
-          droplet_dir.files.create(
-            :key => key_from_guid(guid),
-            :body => file,
-            :public => local?
-          )
-        end
+        store_file(guid, path, "droplet")
+      end
+
+      def store_artifact_cache(guid, path)
+        store_file(guid, path, "artifact_cache")
       end
 
       def delete_droplet(guid)
@@ -102,25 +108,23 @@ module VCAP::CloudController
       end
 
       def droplet_exists?(guid)
-        key = key_from_guid(guid)
-        !droplet_dir.files.head(key).nil?
+        file_exists?(guid, "droplet")
+      end
+
+      def artifact_cache_exists?(guid)
+        file_exists?(guid, "artifact_cache")
       end
 
       def local?
         @connection_config[:provider].downcase == "local"
       end
 
-      # Return droplet uri for path for a given app's guid.
-      #
-      # The url is valid for 1 hour when using aws.
-      # TODO: The expiration should be configurable.
-      def droplet_uri(guid)
+      def file_uri(guid, type)
         key = key_from_guid(guid)
-        f = droplet_dir.files.head(key)
+        f = storage_dir(type).files.head(key)
         return nil unless f
 
-        # unfortunately fog doesn't have a unified interface for non-public
-        # urls
+        # unfortunately fog doesn't have a unified interface for non-public urls
         if local?
           f.public_url
         else
@@ -128,10 +132,10 @@ module VCAP::CloudController
         end
       end
 
-      def droplet_local_path(id)
+      def local_path(id, type)
         raise ArgumentError unless local?
         key = key_from_guid(id)
-        f = droplet_dir.files.head(key)
+        f = storage_dir(type).files.head(key)
         return nil unless f
         # Yes, this is bad.  But, we really need a handle to the actual path in
         # order to serve the file using send_file since send_file only takes a
@@ -140,6 +144,34 @@ module VCAP::CloudController
       end
 
       private
+
+      def file_exists?(app_guid, type)
+        key = key_from_guid(app_guid)
+        !storage_dir(type).files.head(key).nil?
+      end
+
+      def storage_dir(type)
+        if type == 'droplet'
+          droplet_dir
+        else
+          artifact_cache_dir
+        end
+      end
+
+      def store_file(guid, path, type)
+        File.open(path) do |file|
+          storage_dir(type).files.create(
+            :key => key_from_guid(guid),
+            :body => file,
+            :public => local?
+          )
+        end
+      end
+
+      def clear_memoized_directories
+        @directory = nil
+        @artifact_cache_dir = nil
+      end
 
       def staging_uri(path)
         URI::HTTP.build(
@@ -171,7 +203,14 @@ module VCAP::CloudController
 
       def droplet_dir
         @directory ||= connection.directories.create(
-          :key    => @droplet_directory_key,
+          :key => @droplet_directory_key,
+          :public => false,
+        )
+      end
+
+      def artifact_cache_dir
+        @artifact_cache_dir ||= connection.directories.create(
+          :key => @artifact_cache_directory_key,
           :public => false,
         )
       end
@@ -207,70 +246,83 @@ module VCAP::CloudController
       end
     end
 
-    # Handles a droplet upload from a stager
     def upload_droplet(id)
-      app = Models::App.find(:guid => id)
-      raise AppNotFound.new(id) if app.nil?
+      handle_file_upload(id, "droplet")
+    end
 
-      handle = self.class.lookup_handle(id)
-      raise StagingError.new("staging not in progress for #{id}") unless handle
-      raise StagingError.new("malformed droplet upload request for #{id}") unless upload_file
-
-      upload_path = upload_file.path
-      final_path = save_path(id)
-      logger.debug "renaming staged droplet from '#{upload_path}' to '#{final_path}'"
-
-      begin
-        File.rename(upload_path, final_path)
-      rescue => e
-        raise StagingError.new("failed renaming staged droplet: #{e}")
-      end
-
-      handle.upload_path = final_path
-      logger.debug "uploaded droplet for #{id} to #{final_path}"
-      HTTP::OK
+    def upload_artifact_cache(id)
+      handle_file_upload(id, "artifact_cache")
     end
 
     def download_droplet(id)
+      handle_file_download(id, "droplet")
+    end
+
+    def download_artifact_cache(id)
+      handle_file_download(id, "artifact_cache")
+    end
+
+    private
+
+    def handle_file_download(id, type)
       raise InvalidRequest unless LegacyStaging.local?
 
       app = Models::App.find(:guid => id)
       raise AppNotFound.new(id) if app.nil?
 
-      droplet_path = LegacyStaging.droplet_local_path(id)
-      logger.debug "id: #{id} droplet_path #{droplet_path}"
+      path = LegacyStaging.local_path(id, type)
+      logger.debug "id: #{id} #{type} path: #{path}"
 
-      unless droplet_path
-        logger.error "could not find droplet for #{id}"
-        raise StagingError.new("droplet not found for #{id}")
+      unless path
+        logger.error "could not find #{type} file for #{id}"
+        raise StagingError.new("#{type} file not found for #{id}")
       end
 
       if config[:nginx][:use_nginx]
-        url = LegacyStaging.droplet_uri(id)
+        url = LegacyStaging.file_uri(id, type)
         logger.debug "nginx redirect #{url}"
         return [200, { "X-Accel-Redirect" => url }, ""]
       else
-        logger.debug "send_file #{droplet_path}"
-        return send_file droplet_path
+        logger.debug "send_file #{path}"
+        return send_file path
       end
     end
 
-    private
+    def handle_file_upload(id, key)
+      app = Models::App.find(:guid => id)
+      raise AppNotFound.new(id) if app.nil?
+      handle = self.class.lookup_handle(id)
+      raise StagingError.new("staging not in progress for #{id}") unless handle
 
-    # returns an object that responds to #path pointing to the uploaded file
-    # @return [#path]
-    def upload_file
-      @upload_file ||= if config[:nginx][:use_nginx]
-                         Struct.new(:path).new(params["droplet_path"])
-                       else
-                         params["upload"]["droplet"][:tempfile]
-                       end
+      raise StagingError.new("malformed artifact cache upload request for #{id}") unless file_upload_param(key)
+      upload_path = file_upload_param(key).path
+
+      final_path = save_path(id, key)
+      logger.debug "renaming #{key} file from '#{upload_path}' to '#{final_path}'"
+
+      begin
+        File.rename(upload_path, final_path)
+      rescue => e
+        raise StagingError.new("failed renaming #{key} file: #{e}")
+      end
+
+      handle.set_path(key, final_path)
+      logger.debug "uploaded #{key} file for #{id} to #{final_path}"
+      HTTP::OK
+    end
+
+    def file_upload_param(key)
+      if config[:nginx][:use_nginx]
+        Struct.new(:path).new(params["#{key}_path"])
+      else
+        params["upload"][key][:tempfile]
+      end
     rescue
       nil
     end
 
-    def save_path(id)
-      File.join(tmpdir, "staged_upload_#{id}.tgz")
+    def save_path(id, prefix)
+      File.join(tmpdir, "#{prefix}_#{id}.tgz")
     end
 
     def tmpdir
@@ -289,6 +341,8 @@ module VCAP::CloudController
     end
 
     get  "/staging/apps/:id", :download_app
+    get  "/staging/artifact-caches/:id", :download_artifact_cache
+    post "/staging/artifact-caches/:id", :upload_artifact_cache
     post "/staging/droplets/:id", :upload_droplet
     get  "/staged_droplets/:id", :download_droplet
   end

@@ -98,6 +98,7 @@ module VCAP::CloudController
           :properties => staging_task_properties(app),
           :download_uri => LegacyStaging.app_uri(app.guid),
           :upload_uri => LegacyStaging.droplet_upload_uri(app.guid),
+          :artifact_cache_uri => LegacyStaging.artifact_cache_uri(app.guid),
           :async => async,
         }
       end
@@ -130,8 +131,9 @@ module VCAP::CloudController
       def staging_completion(app, stager_response, upload_handle)
         StagingTaskLog.new(app.guid, stager_response.log, @redis_client).save
 
-        droplet_hash = Digest::SHA1.file(upload_handle.upload_path).hexdigest
-        LegacyStaging.store_droplet(app.guid, upload_handle.upload_path)
+        droplet_hash = Digest::SHA1.file(upload_handle.droplet_upload_path).hexdigest
+        LegacyStaging.store_droplet(app.guid, upload_handle.droplet_upload_path)
+        LegacyStaging.store_artifact_cache(app.guid, upload_handle.artifact_cache_upload_path)
 
         app.droplet_hash = droplet_hash
         app.save
