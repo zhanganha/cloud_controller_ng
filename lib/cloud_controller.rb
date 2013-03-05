@@ -120,6 +120,7 @@ require "cloud_controller/runner"
 require "cloud_controller/errors"
 require "cloud_controller/app_package"
 require "cloud_controller/app_stager"
+require "cloud_controller/stager_pool"
 require "cloud_controller/api"
 require "cloud_controller/roles"
 
