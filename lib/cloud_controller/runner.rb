@@ -140,7 +140,7 @@ module VCAP::CloudController
       @config[:bind_address] = VCAP.local_ip(@config[:local_route])
       VCAP::CloudController::Config.configure(@config)
 
-      logger.info "running on #{ENV["VMC_APP_HOST"]}" if running_in_cf?
+      logger.info "running on #{ENV["VCAP_APP_HOST"]}" if running_in_cf?
     end
 
     def create_app(config)
