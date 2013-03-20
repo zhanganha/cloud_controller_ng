@@ -12,7 +12,7 @@ module VCAP::CloudController
       :required_attributes  => [:name, :owning_organization_guid, :wildcard],
       :unique_attributes    => :name,
 
-      :one_to_many_collection_ids => {
+      :many_to_many_collection_ids => {
         :spaces => lambda { |user|
           org = user.organizations.first || Models::Organization.make
           Models::Space.make(:organization => org)
