@@ -13,7 +13,7 @@ module VCAP::CloudController::ApiSpecHelper
         last_response.status.should == 401
       end
 
-      it "should reutrn a vcap error code of 1000" do
+      it "should return a vcap error code of 1000" do
         decoded_response["code"].should == 1000
       end
 
