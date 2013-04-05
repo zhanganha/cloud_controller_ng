@@ -54,7 +54,7 @@ service_lifecycle:
 # App staging parameters
 staging:
   # Max duration for staging process
-  max_staging_runtime: 120 # secs
+  max_staging_runtime: 960 # secs
   auth:
     user: zxsfhgjg
     password: ZNVfdase9
