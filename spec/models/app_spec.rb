@@ -86,6 +86,50 @@ module VCAP::CloudController
       end
     end
 
+    describe "#stack=" do
+      let(:new_stack) { Models::Stack.make }
+
+      context "app was not staged before" do
+        subject { Models::App.new }
+
+        it "doesn't mark the app for staging" do
+          subject.stack = new_stack
+          subject.staged?.should be_false
+          subject.needs_staging?.should be_false
+        end
+      end
+
+      context "app needs staging" do
+        subject { Models::App.make(
+          :package_hash => "package-hash",
+          :package_state => "PENDING"
+        ) }
+
+        it "keeps app as needs staging" do
+          subject.stack = new_stack
+          subject.staged?.should be_false
+          subject.needs_staging?.should be_true
+        end
+      end
+
+      context "app is already staged" do
+        subject { Models::App.make(:package_hash => "package-hash") }
+        before { subject.droplet_hash = "droplet-hash" }
+
+        it "marks the app for re-staging" do
+          expect {
+            subject.stack = new_stack
+          }.to change { subject.needs_staging? }.from(false).to(true)
+        end
+
+        it "does not consider app as staged" do
+          expect {
+            subject.stack = new_stack
+          }.to change { subject.staged? }.from(true).to(false)
+        end
+      end
+    end
+
     describe "bad relationships" do
       it "should not associate an app with a route on a different space" do
         app = Models::App.make
@@ -129,38 +173,35 @@ module VCAP::CloudController
 
     describe "#environment_json" do
       it "deserializes the serialized value" do
-        app = Models::App.make(
-          :environment_json => { "jesse" => "awesome" },
-        )
+        app = Models::App.make(:environment_json => {"jesse" => "awesome"})
         app.environment_json.should eq("jesse" => "awesome")
       end
 
-      shared_examples "env change doesn't mark an app for restage" do
-        let(:old_env_json) { }
-
+      def self.it_does_not_mark_for_re_staging
         it "does not mark an app for restage" do
           app = Models::App.make(
             :package_hash => "deadbeef",
             :package_state => "STAGED",
             :environment_json => old_env_json,
           )
-          app.needs_staging?.should be_false
 
-          app.environment_json = new_env_json
-          app.save
-          app.needs_staging?.should be_false
+          expect {
+            app.environment_json = new_env_json
+            app.save
+          }.to_not change { app.needs_staging? }
         end
       end
 
       context "if env changes" do
+        let(:old_env_json) { {} }
         let(:new_env_json) { { "key" => "value" } }
-        it_behaves_like "env change doesn't mark an app for restage"
+        it_does_not_mark_for_re_staging
       end
 
       context "if BUNDLE_WITHOUT in env changes" do
         let(:old_env_json) { { "BUNDLE_WITHOUT" => "test" } }
         let(:new_env_json) { { "BUNDLE_WITHOUT" => "development" } }
-        it_behaves_like "env change doesn't mark an app for restage"
+        it_does_not_mark_for_re_staging
       end
     end
 

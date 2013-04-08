@@ -29,12 +29,12 @@ module VCAP::CloudController
       default_order_by  :name
 
       export_attributes :name, :production,
-                        :space_guid, :stack_guid, :buildpack,
+                        :space_guid, :stack_guid, :buildpack, :detected_buildpack,
                         :environment_json, :memory, :instances, :disk_quota,
                         :state, :version, :command, :console, :debug
 
       import_attributes :name, :production,
-                        :space_guid, :stack_guid, :buildpack,
+                        :space_guid, :stack_guid, :buildpack, :detected_buildpack,
                         :environment_json, :memory, :instances, :disk_quota,
                         :state, :command, :console, :debug,
                         :service_binding_guids, :route_guids
@@ -271,18 +271,22 @@ module VCAP::CloudController
         mark_for_restaging
       end
 
-      def mark_for_restaging(should_save=true)
+      def mark_for_restaging(opts={})
         self.package_state = "PENDING"
-        save if should_save
+        save if opts[:save]
       end
 
       def package_hash=(hash)
         super(hash)
-        mark_for_restaging(false) if column_changed?(:package_hash)
+        mark_for_restaging if column_changed?(:package_hash)
+      end
+
+      def stack=(stack)
+        mark_for_restaging unless new?
+        super(stack)
       end
 
       def droplet_hash=(hash)
-        # TODO: rename package_state to just state?
         self.package_state = "STAGED"
         super(hash)
       end

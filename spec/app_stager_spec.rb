@@ -117,6 +117,12 @@ module VCAP::CloudController
               }.to change { app.droplet_hash }.from(nil)
             end
 
+            it "saves the detected buildpack" do
+              expect {
+                with_em_and_thread { stage }
+              }.to change { app.detected_buildpack }.from(nil)
+            end
+
             it "removes upload handle" do
               LegacyStaging.should_receive(:destroy_handle).with(upload_handle)
               with_em_and_thread { stage }
@@ -168,6 +174,12 @@ module VCAP::CloudController
                 app.refresh
                 app.droplet_hash
               }.from("droplet-hash")
+            end
+
+            it "does not save the detected buildpack" do
+              expect {
+                ignore_error(Errors::StagingError) { with_em_and_thread { stage } }
+              }.to_not change { app.detected_buildpack }.from(nil)
             end
 
             it "removes upload handle" do
@@ -230,6 +242,12 @@ module VCAP::CloudController
             }.to_not change { LegacyStaging.droplet_exists?(app.guid) }.from(false)
           end
 
+          it "does not save the detected buildpack" do
+            expect {
+              ignore_error(Errors::StagingError) { with_em_and_thread { stage } }
+            }.to_not change { app.detected_buildpack }.from(nil)
+          end
+
           it "does not call provided callback (not yet)" do
             callback_called = false
             ignore_error(Errors::StagingError) do
@@ -255,11 +273,12 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => nil,
+                  "detected_buildpack" => "buildpack-name",
                   "error" => nil,
                 })
               end
 
-              it "does not returns streaming log url in response" do
+              it "does not return streaming log url in response" do
                 with_em_and_thread { stage.streaming_log_url.should be_nil }
               end
 
@@ -282,6 +301,7 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => nil,
+                  "detected_buildpack" => nil,
                   "error" => "staging failed",
                 })
               end
@@ -310,6 +330,7 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => "task-streaming-log-url",
+                  "detected_buildpack" => nil,
                   "error" => nil,
                 })
               end
@@ -337,6 +358,7 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => nil,
+                  "detected_buildpack" => nil,
                   "error" => "staging failed",
                 })
               end
@@ -361,6 +383,7 @@ module VCAP::CloudController
                 "task_id" => "task-id",
                 "task_log" => "task-log",
                 "task_streaming_log_url" => "task-streaming-log-url",
+                "detected_buildpack" => "buildpack-name",
                 "error" => nil,
               })
             end
@@ -371,6 +394,7 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => nil,
+                  "detected_buildpack" => "buildpack-name",
                   "error" => nil,
                 })
               end
@@ -393,6 +417,7 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => nil,
+                  "detected_buildpack" => nil,
                   "error" => "staging failed",
                 })
               end
@@ -419,6 +444,7 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => nil,
+                  "detected_buildpack" => "buildpack-name",
                   "error" => nil,
                 })
               end
@@ -446,6 +472,7 @@ module VCAP::CloudController
                   "task_id" => "task-id",
                   "task_log" => "task-log",
                   "task_streaming_log_url" => nil,
+                  "detected_buildpack" => nil,
                   "error" => "staging failed",
                 })
               end
