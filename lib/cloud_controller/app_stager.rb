@@ -62,6 +62,10 @@ module VCAP::CloudController
       @stager_pool = stager_pool
     end
 
+    def task_id
+      @task_id ||= VCAP.secure_uuid
+    end
+
     def stage(options={}, &completion_callback)
       stager_id = @stager_pool.find_stager(@app.stack.name, 1024)
       raise Errors::StagingError, "no available stagers" unless stager_id
@@ -75,6 +79,9 @@ module VCAP::CloudController
       # different cloud controller completing staging request for the same app before
       # this cloud controller completes the staging.
       @current_droplet_hash = @app.droplet_hash
+
+      save_latest_staging_task
+      stop_other_staging_tasks
 
       @upload_handle = LegacyStaging.create_handle(@app.guid)
       @completion_callback = completion_callback
@@ -102,6 +109,7 @@ module VCAP::CloudController
 
     def staging_request(async)
       { :app_id => @app.guid,
+        :task_id => task_id,
         :properties => staging_task_properties(@app),
         :download_uri => LegacyStaging.app_uri(@app.guid),
         :upload_uri => LegacyStaging.droplet_upload_uri(@app.guid),
@@ -109,6 +117,17 @@ module VCAP::CloudController
     end
 
     private
+
+    def save_latest_staging_task
+      @app.staging_task_id = task_id
+      @app.save
+    end
+
+    def stop_other_staging_tasks
+      MessageBus.instance.publish("staging.stop", Yajl::Encoder.encode(
+        :app_id => @app.guid
+      ))
+    end
 
     def handle_first_response(response, error, promise)
       staging_error!(response, error)
@@ -122,7 +141,7 @@ module VCAP::CloudController
         process_sync_response(stager_response, promise)
       end
     rescue => e
-      destroy_upload_handle
+      destroy_upload_handle if staging_is_current?
       promise.fail(e)
     end
 
@@ -147,7 +166,7 @@ module VCAP::CloudController
       ensure_staging_is_current!
       process_async_response(response)
     rescue => e
-      destroy_upload_handle
+      destroy_upload_handle if staging_is_current?
       logger.error "Encountered error: #{e}\n#{e.backtrace}"
     end
 
@@ -175,15 +194,17 @@ module VCAP::CloudController
     end
 
     def ensure_staging_is_current!
-      # Reload to find other updates of droplet hash
-      # which means that our staging process should not update the app
+      unless staging_is_current?
+        raise Errors::StagingError, "failed to stage application: another staging request was initiated"
+      end
+    end
+
+    def staging_is_current?
+      # Reload to find other updates of staging task id
+      # which means that there was a new staging process initiated
       @app.refresh
 
-      # Check if a different cloud controller has already completed
-      # the staging request for the same app.
-      unless @app.droplet_hash == @current_droplet_hash
-        raise Errors::StagingError, "failed to stage because app changed while staging"
-      end
+      @app.staging_task_id == task_id
     end
 
     def staging_completion(stager_response)
