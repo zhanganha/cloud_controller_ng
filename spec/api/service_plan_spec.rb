@@ -1,5 +1,3 @@
-# Copyright (c) 2009-2011 VMware, Inc.
-
 require File.expand_path("../spec_helper", __FILE__)
 
 module VCAP::CloudController
@@ -80,6 +78,30 @@ module VCAP::CloudController
           let(:member_b) { @org_b_auditor }
 
           include_examples "enumerate and read plan only", "Auditor"
+        end
+      end
+
+      describe "non public service plans" do
+        let!(:service_plan) { Models::ServicePlan.make(public: false) }
+        let(:decoded_response) { Yajl::Parser.parse(last_response.body)}
+
+        let(:admin) { VCAP::CloudController::Models::User.make(:admin => true) }
+        let(:developer) { make_developer_for_space(Models::Space.make) }
+        let(:plan_guids) do
+          decoded_response.fetch('resources').collect do |r|
+            r.fetch('metadata').fetch('guid')
+          end
+        end
+
+        it "is not visible to users from normal organization" do
+          get '/v2/service_plans', {}, headers_for(developer)
+          plan_guids.should_not include(service_plan.guid)
+        end
+
+        it "is visible to users from privileged organizations"
+        it "is visible to cf admin" do
+          get '/v2/service_plans', {}, headers_for(admin)
+          plan_guids.should include(service_plan.guid)
         end
       end
 
