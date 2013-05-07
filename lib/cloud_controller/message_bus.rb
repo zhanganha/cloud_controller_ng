@@ -1,5 +1,3 @@
-# Copyright (c) 2012-2012 VMware, Inc.
-
 require "nats/client"
 require "vcap/component"
 require "cloud_controller/json_patch"

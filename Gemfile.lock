@@ -39,6 +39,12 @@ GIT
   specs:
     vcap-concurrency (0.1.0)
 
+PATH
+  remote: gems/cf-message-bus
+  specs:
+    cf-message-bus (0.0.1)
+      nats (~> 0.4.24)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -181,6 +187,7 @@ PLATFORMS
 
 DEPENDENCIES
   bcrypt-ruby
+  cf-message-bus!
   cf-uaa-lib (~> 1.3.7)!
   ci_reporter
   debugger
