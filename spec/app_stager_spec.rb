@@ -8,7 +8,7 @@ module VCAP::CloudController
     before { configure }
 
     let(:mock_nats) { NatsClientMock.new({}) }
-    before { MessageBus.instance.nats.client = mock_nats }
+    before { CfMessageBus::MessageBus.instance.nats.client = mock_nats }
 
     let(:stager_pool) { StagerPool.new({}, nil) }
     before { stager_pool.stub(:find_stager => "staging-id") }
@@ -74,7 +74,7 @@ module VCAP::CloudController
             end
 
             it "stops other staging tasks" do
-              MessageBus.instance.should_receive(:publish).with(
+              CfMessageBus::MessageBus.instance.should_receive(:publish).with(
                 "staging.stop", JSON.dump({"app_id" => app.guid}))
               with_em_and_thread { stage }
             end

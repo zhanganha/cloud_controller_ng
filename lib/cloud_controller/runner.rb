@@ -1,9 +1,7 @@
-# Copyright (c) 2009-2012 VMware, Inc.
-
 require "steno"
 require "optparse"
 require "vcap/uaa_util"
-require File.expand_path("../message_bus.rb", __FILE__)
+require "cf_message_bus/message_bus"
 
 module VCAP::CloudController
   class Runner
@@ -138,8 +136,8 @@ module VCAP::CloudController
       Rack::Builder.new do
         use Rack::CommonLogger
 
-        VCAP::CloudController::MessageBus.instance.register_components
-        VCAP::CloudController::MessageBus.instance.register_routes
+        CfMessageBus::MessageBus.instance.register_components
+        CfMessageBus::MessageBus.instance.register_routes
 
         VCAP::CloudController::DeaClient.run
         VCAP::CloudController::AppStager.run
@@ -148,7 +146,7 @@ module VCAP::CloudController
         VCAP::CloudController.health_manager_respondent =
           VCAP::CloudController::HealthManagerRespondent.new(config)
         VCAP::CloudController.dea_respondent =
-          VCAP::CloudController::DeaRespondent.new(config, VCAP::CloudController::MessageBus.instance)
+          VCAP::CloudController::DeaRespondent.new(config, CfMessageBus::MessageBus.instance)
         map "/" do
           run VCAP::CloudController::Controller.new(config, token_decoder)
         end

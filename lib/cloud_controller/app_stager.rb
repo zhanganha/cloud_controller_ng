@@ -71,7 +71,7 @@ module VCAP::CloudController
       raise Errors::StagingError, "no available stagers" unless stager_id
 
       subject = "staging.#{stager_id}.start"
-      @responses = MultiResponseNatsRequest.new(MessageBus.instance.nats.client, subject)
+      @responses = MultiResponseNatsRequest.new(CfMessageBus::MessageBus.instance.nats.client, subject)
       # The creation of upload handle only guarantees that this cloud controller
       # is disallowed from trying to stage this app again. It does NOT guarantee that a different
       # cloud controller will NOT start staging the app in parallel. Therefore, we need to
@@ -126,7 +126,7 @@ module VCAP::CloudController
     end
 
     def stop_other_staging_tasks
-      MessageBus.instance.publish("staging.stop", Yajl::Encoder.encode(
+      CfMessageBus::MessageBus.instance.publish("staging.stop", Yajl::Encoder.encode(
         :app_id => @app.guid
       ))
     end

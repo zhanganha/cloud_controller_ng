@@ -43,7 +43,11 @@ PATH
   remote: gems/cf-message-bus
   specs:
     cf-message-bus (0.0.1)
+      eventmachine (~> 1.0.0)
       nats (~> 0.4.24)
+      steno (~> 1.0.0)
+      vcap-concurrency
+      yajl-ruby
 
 GEM
   remote: https://rubygems.org/

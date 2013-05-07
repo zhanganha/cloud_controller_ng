@@ -5,7 +5,7 @@ require File.expand_path("../spec_helper", __FILE__)
 module VCAP::CloudController
   describe VCAP::CloudController::StagerPool do
     let(:mock_nats) { NatsClientMock.new({}) }
-    let(:message_bus) { MessageBus.new(:nats => mock_nats) }
+    let(:message_bus) { CfMessageBus::MessageBus.new(:nats => mock_nats) }
     subject { StagerPool.new(config, message_bus) }
 
     describe "#register_subscriptions" do

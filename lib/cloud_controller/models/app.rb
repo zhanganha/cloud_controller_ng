@@ -1,5 +1,3 @@
-# Copyright (c) 2009-2012 VMware, Inc.
-
 require "cloud_controller/app_stager"
 
 module VCAP::CloudController
@@ -378,9 +376,9 @@ module VCAP::CloudController
       end
 
       def send_droplet_updated_message
-        MessageBus.instance.publish("droplet.updated", Yajl::Encoder.encode(
+        CfMessageBus::MessageBus.instance.publish("droplet.updated", Yajl::Encoder.encode(
           :droplet => guid,
-          :cc_partition => MessageBus.instance.config[:cc_partition]
+          :cc_partition => CfMessageBus::MessageBus.instance.config[:cc_partition]
         ))
       end
 

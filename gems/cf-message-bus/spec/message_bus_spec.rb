@@ -1,9 +1,46 @@
-# Copyright (c) 2009-2012 VMware, Inc.
+require "cf_message_bus/message_bus"
 
-require File.expand_path("../spec_helper", __FILE__)
+def with_em_and_thread(opts = {}, &blk)
+  auto_stop = opts.has_key?(:auto_stop) ? opts[:auto_stop] : true
+  Thread.abort_on_exception = true
 
-module VCAP::CloudController
-  describe VCAP::CloudController::MessageBus do
+  # Make sure that thread pool for defers is 1
+  # so that it acts as a simple run loop.
+  EM.threadpool_size = 1
+
+  EM.run do
+    Thread.new do
+      blk.call
+      stop_em_when_all_defers_are_done if auto_stop
+    end
+  end
+end
+
+def stop_em_when_all_defers_are_done
+  stop_em = lambda {
+    # Account for defers/timers made from within defers/timers
+    if EM.defers_finished? && em_timers_finished?
+      EM.stop
+    else
+      # Note: If we put &stop_em in a oneshot timer
+      # calling EM.stop does not stop EM; however,
+      # calling EM.stop in the next tick does.
+      # So let's just do next_tick...
+      EM.next_tick(&stop_em)
+    end
+  }
+  EM.next_tick(&stop_em)
+end
+
+def em_timers_finished?
+  all_timers = EM.instance_variable_get("@timers")
+  active_timers = all_timers.select { |tid, t| t.respond_to?(:call) }
+  active_timers.empty?
+end
+
+
+module CfMessageBus
+  describe MessageBus do
     let(:nats) do
       nats = double(:nats)
       nats.stub(:subscribe)
@@ -15,7 +52,7 @@ module VCAP::CloudController
       nats.stub(:wait_for_server)
       nats
     end
-    let(:bus) { MessageBus.new(:nats => nats, :nats_uri => "nats://localhost:4222") }
+    let(:bus) { MessageBus.new(:nats => nats, :nats_uri => "nats://localhost:4222", :varz => mock("VARZ Mock", :synchronize => nil)) }
 
     let(:msg) { {:foo => "bar"} }
     let(:msg_json) { Yajl::Encoder.encode(msg) }
@@ -57,10 +94,10 @@ module VCAP::CloudController
       it "should save subscriptions" do
         blk = lambda { puts "le bloc" }
         with_em_and_thread do
-          bus.subscribe("eenee-meenee.moo", { :optional => true}, &blk)
+          bus.subscribe("eenee-meenee.moo", {:optional => true}, &blk)
         end
 
-        bus.subscriptions.should include({"eenee-meenee.moo" => [ {:optional => true}, blk]})
+        bus.subscriptions.should include({"eenee-meenee.moo" => [{:optional => true}, blk]})
       end
     end
 
@@ -84,9 +121,9 @@ module VCAP::CloudController
     describe "#request" do
       it "should use default expected value when not specified" do
         nats.should_receive(:request)
-          .once
-          .with("subject", "abc", :max => 1)
-          .and_yield(msg_json)
+        .once
+        .with("subject", "abc", :max => 1)
+        .and_yield(msg_json)
 
         with_em_and_thread do
           response = bus.request("subject", "abc")
@@ -98,10 +135,10 @@ module VCAP::CloudController
 
       it "should use the specified expected value" do
         nats.should_receive(:request)
-          .once
-          .with("subject", "abc", :max => 2)
-          .and_yield(msg_json)
-          .and_yield(msg_json)
+        .once
+        .with("subject", "abc", :max => 2)
+        .and_yield(msg_json)
+        .and_yield(msg_json)
 
         with_em_and_thread do
           response = bus.request("subject", "abc", :expected => 2)
@@ -122,9 +159,9 @@ module VCAP::CloudController
 
       it "should not register timeout with nats when none is specified" do
         nats.should_receive(:request)
-          .once
-          .with("subject", "abc", :max => 1)
-          .and_yield(msg_json)
+        .once
+        .with("subject", "abc", :max => 1)
+        .and_yield(msg_json)
 
         nats.should_not_receive(:timeout)
 
@@ -286,14 +323,6 @@ module VCAP::CloudController
         bus.should_receive(:subscribe).with("hello.world", {}, &blk1)
         bus.should_receive(:subscribe).with("hello.milkyway", {}, &blk2)
         bus.should_receive(:subscribe).with("hello.universe", {}, &blk3)
-
-        with_em_and_thread do
-          bus.start_nats_recovery
-        end
-      end
-
-      it "registers legacy bulk subscription" do
-        VCAP::CloudController::LegacyBulk.should_receive(:register_subscription)
 
         with_em_and_thread do
           bus.start_nats_recovery

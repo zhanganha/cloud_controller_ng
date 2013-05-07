@@ -307,7 +307,7 @@ module VCAP::CloudController
           :space => space,
         )
 
-        MessageBus.instance.should_receive(:publish).with(
+        CfMessageBus::MessageBus.instance.should_receive(:publish).with(
           "dea.update",
           json_match(hash_including(
             "uris" => ["app.jesse.cloud"]
@@ -342,7 +342,7 @@ module VCAP::CloudController
           r["metadata"]["guid"]
         }.sort.should == [bar_route.guid, route.guid].sort
 
-        MessageBus.instance.should_receive(:publish).with(
+        CfMessageBus::MessageBus.instance.should_receive(:publish).with(
           "dea.update",
           json_match(hash_including(
             "uris" => ["foo.jesse.cloud"],

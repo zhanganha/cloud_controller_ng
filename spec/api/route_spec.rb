@@ -1,5 +1,3 @@
-# Copyright (c) 2009-2011 VMware, Inc.
-
 require File.expand_path("../spec_helper", __FILE__)
 
 module VCAP::CloudController
@@ -257,7 +255,7 @@ module VCAP::CloudController
         r["metadata"]["guid"]
       }).to eq [@foo_app.guid]
 
-      MessageBus.instance.should_receive(:publish).with(
+      CfMessageBus::MessageBus.instance.should_receive(:publish).with(
         "dea.update",
         json_match(hash_including(
           "uris" => %w(foo.jesse.cloud),
@@ -286,7 +284,7 @@ module VCAP::CloudController
         r["metadata"]["guid"]
       }.sort.should eq [@foo_app.guid, @bar_app.guid].sort
 
-      MessageBus.instance.should_receive(:publish).with(
+      CfMessageBus::MessageBus.instance.should_receive(:publish).with(
         "dea.update",
         json_match(hash_including(
           "uris" => [],

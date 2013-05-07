@@ -1,4 +1,3 @@
-# Copyright (c) 2009-2012 VMware, Inc.
 $:.unshift(File.expand_path("../../lib", __FILE__))
 
 require "rubygems"
@@ -14,6 +13,7 @@ require "steno"
 require "cloud_controller"
 require "rspec_let_monkey_patch"
 require "webmock/rspec"
+require "cf_message_bus/message_bus"
 
 module VCAP::CloudController
   class SpecEnvironment
@@ -185,7 +185,8 @@ module VCAP::CloudController::SpecHelper
   def configure_components(config)
     VCAP::CloudController::Config.db_encryption_key = "some-key"
     mbus = MockMessageBus.new(config)
-    VCAP::CloudController::MessageBus.instance = mbus
+    CfMessageBus::MessageBus.instance = mbus
+
     # FIXME: this is better suited for a before-each stub so that we can unstub it in examples
     VCAP::CloudController::Models::ServiceInstance.gateway_client_class =
       VCAP::Services::Api::ServiceGatewayClientFake
