@@ -11,33 +11,34 @@ module VCAP::CloudController
         end
       end
 
-      class InvalidBindingRelation < InvalidRelation; end
+      class InvalidBindingRelation < InvalidRelation;
+      end
 
-      one_to_many       :service_bindings, :after_remove => :after_remove_binding
-      many_to_one       :space
-      many_to_one       :stack
-      many_to_many      :routes, :before_add => :validate_route, :after_add => :mark_routes_changed, :after_remove => :mark_routes_changed
-      many_to_many      :service_instances, :join_table => :service_bindings
-      one_to_many       :app_events
+      one_to_many :service_bindings, :after_remove => :after_remove_binding
+      many_to_one :space
+      many_to_one :stack
+      many_to_many :routes, :before_add => :validate_route, :after_add => :mark_routes_changed, :after_remove => :mark_routes_changed
+      many_to_many :service_instances, :join_table => :service_bindings
+      one_to_many :app_events
 
       add_association_dependencies :routes => :nullify, :service_instances => :nullify,
         :service_bindings => :destroy, :app_events => :destroy
 
-      default_order_by  :name
+      default_order_by :name
 
       export_attributes :name, :production,
-                        :space_guid, :stack_guid, :buildpack, :detected_buildpack,
-                        :environment_json, :memory, :instances, :disk_quota,
-                        :state, :version, :command, :console, :debug,
-                        :staging_task_id
+        :space_guid, :stack_guid, :buildpack, :detected_buildpack,
+        :environment_json, :memory, :instances, :disk_quota,
+        :state, :version, :command, :console, :debug,
+        :staging_task_id
 
       import_attributes :name, :production,
-                        :space_guid, :stack_guid, :buildpack, :detected_buildpack,
-                        :environment_json, :memory, :instances, :disk_quota,
-                        :state, :command, :console, :debug,
-                        :staging_task_id, :service_binding_guids, :route_guids
+        :space_guid, :stack_guid, :buildpack, :detected_buildpack,
+        :environment_json, :memory, :instances, :disk_quota,
+        :state, :command, :console, :debug,
+        :staging_task_id, :service_binding_guids, :route_guids
 
-      strip_attributes  :name
+      strip_attributes :name
 
       serialize_attributes :json, :metadata
 
@@ -56,7 +57,7 @@ module VCAP::CloudController
       def validate
         validates_presence :name
         validates_presence :space
-        validates_unique   [:space_id, :name]
+        validates_unique [:space_id, :name]
 
         validates_git_url :buildpack
 
@@ -130,7 +131,7 @@ module VCAP::CloudController
 
       def footprint_changed?
         (column_changed?(:production) || column_changed?(:memory) ||
-         column_changed?(:instances))
+          column_changed?(:instances))
       end
 
       def after_destroy
@@ -211,8 +212,8 @@ module VCAP::CloudController
 
       def validate_route(route)
         unless (route && space &&
-                route.domain_dataset.filter(:spaces => [space]).count == 1 &&
-                route.space_id == space.id)
+          route.domain_dataset.filter(:spaces => [space]).count == 1 &&
+          route.space_id == space.id)
           raise InvalidRouteRelation.new(route.guid)
         end
       end
@@ -338,8 +339,7 @@ module VCAP::CloudController
 
       def stage_if_needed(&success_callback)
         if needs_staging? && started?
-          self.last_stager_response = \
-            AppStager.stage_app(self, {:async => stage_async}, &success_callback)
+          self.last_stager_response = AppStager.stage_app(self, {:async => stage_async}, &success_callback)
         else
           success_callback.call
         end
@@ -376,9 +376,9 @@ module VCAP::CloudController
       end
 
       def send_droplet_updated_message
-        CfMessageBus::MessageBus.instance.publish("droplet.updated", Yajl::Encoder.encode(
+        CfMessageBus::MessageBus.publish("droplet.updated", Yajl::Encoder.encode(
           :droplet => guid,
-          :cc_partition => CfMessageBus::MessageBus.instance.config[:cc_partition]
+          :cc_partition => CfMessageBus::MessageBus.config[:cc_partition]
         ))
       end
 

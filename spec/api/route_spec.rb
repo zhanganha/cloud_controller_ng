@@ -255,7 +255,7 @@ module VCAP::CloudController
         r["metadata"]["guid"]
       }).to eq [@foo_app.guid]
 
-      CfMessageBus::MessageBus.instance.should_receive(:publish).with(
+      CfMessageBus::MessageBus.should_receive(:publish).with(
         "dea.update",
         json_match(hash_including(
           "uris" => %w(foo.jesse.cloud),
@@ -284,7 +284,7 @@ module VCAP::CloudController
         r["metadata"]["guid"]
       }.sort.should eq [@foo_app.guid, @bar_app.guid].sort
 
-      CfMessageBus::MessageBus.instance.should_receive(:publish).with(
+      CfMessageBus::MessageBus.should_receive(:publish).with(
         "dea.update",
         json_match(hash_including(
           "uris" => [],

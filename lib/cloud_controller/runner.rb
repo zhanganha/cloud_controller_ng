@@ -136,9 +136,6 @@ module VCAP::CloudController
       Rack::Builder.new do
         use Rack::CommonLogger
 
-        CfMessageBus::MessageBus.instance.register_components
-        CfMessageBus::MessageBus.instance.register_routes
-
         VCAP::CloudController::DeaClient.run
         VCAP::CloudController::AppStager.run
 
@@ -146,7 +143,7 @@ module VCAP::CloudController
         VCAP::CloudController.health_manager_respondent =
           VCAP::CloudController::HealthManagerRespondent.new(config)
         VCAP::CloudController.dea_respondent =
-          VCAP::CloudController::DeaRespondent.new(config, CfMessageBus::MessageBus.instance)
+          VCAP::CloudController::DeaRespondent.new(config, CfMessageBus::MessageBus)
         map "/" do
           run VCAP::CloudController::Controller.new(config, token_decoder)
         end

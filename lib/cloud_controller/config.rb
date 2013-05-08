@@ -133,8 +133,8 @@ class VCAP::CloudController::Config < VCAP::Config
   end
 
   def self.configure(config)
-    mbus = CfMessageBus::MessageBus.new(config.merge({:component => VCAP::Component}))
-    CfMessageBus::MessageBus.instance = mbus
+    mbus_config = {:component => VCAP::Component, :name => "CloudController", :tag => "cc"}
+    mbus = CfMessageBus::MessageBus.configure(config.merge(mbus_config))
 
     VCAP::CloudController::Config.db_encryption_key = config[:db_encryption_key]
     VCAP::CloudController::AccountCapacity.configure(config)

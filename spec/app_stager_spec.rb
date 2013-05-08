@@ -1,11 +1,9 @@
-# Copyright (c) 2009-2012 VMware, Inc.
-
 require File.expand_path("../spec_helper", __FILE__)
 require File.expand_path("../support/mock_nats", __FILE__)
 
 module VCAP::CloudController
   describe VCAP::CloudController::AppStager do
-    before { configure }
+    before { raise "NEED TO FIX CALL THROUGH TO NATS"; configure }
 
     let(:mock_nats) { NatsClientMock.new({}) }
     before { CfMessageBus::MessageBus.instance.nats.client = mock_nats }
@@ -74,7 +72,7 @@ module VCAP::CloudController
             end
 
             it "stops other staging tasks" do
-              CfMessageBus::MessageBus.instance.should_receive(:publish).with(
+              CfMessageBus::MessageBus.should_receive(:publish).with(
                 "staging.stop", JSON.dump({"app_id" => app.guid}))
               with_em_and_thread { stage }
             end

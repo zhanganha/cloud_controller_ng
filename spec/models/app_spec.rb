@@ -892,7 +892,7 @@ module VCAP::CloudController
         def self.it_does_not_notify_dea
           it "does not notify dea of app update" do
             DeaClient.should_not_receive(:change_running_instances)
-            CfMessageBus::MessageBus.instance.should_not_receive(:publish)
+            CfMessageBus::MessageBus.should_not_receive(:publish)
             update
           end
         end
@@ -900,7 +900,7 @@ module VCAP::CloudController
         def self.it_notifies_dea
           it "notifies dea of update" do
             DeaClient.should_receive(:change_running_instances).with(subject, after_update_instances)
-            CfMessageBus::MessageBus.instance.should_receive(:publish).with(
+            CfMessageBus::MessageBus.should_receive(:publish).with(
               "droplet.updated",
               json_match(hash_including(
                 "droplet" => subject.guid,
@@ -944,7 +944,7 @@ module VCAP::CloudController
         def self.it_does_not_notify_dea
           it "does not notify dea of stop or update" do
             DeaClient.should_not_receive(:stop)
-            CfMessageBus::MessageBus.instance.should_not_receive(:publish)
+            CfMessageBus::MessageBus.should_not_receive(:publish)
             update
           end
         end
@@ -952,7 +952,7 @@ module VCAP::CloudController
         def self.it_notifies_dea
           it "notifies dea of stop and update" do
             DeaClient.should_receive(:stop).with(subject)
-            CfMessageBus::MessageBus.instance.should_receive(:publish).with(
+            CfMessageBus::MessageBus.should_receive(:publish).with(
               "droplet.updated",
               json_match(hash_including(
                 "droplet" => subject.guid,
@@ -996,7 +996,7 @@ module VCAP::CloudController
         def self.it_does_not_notify_dea
           it "does not notify dea of app update" do
             DeaClient.should_not_receive(:start)
-            CfMessageBus::MessageBus.instance.should_not_receive(:publish)
+            CfMessageBus::MessageBus.should_not_receive(:publish)
             update
           end
         end
@@ -1004,7 +1004,7 @@ module VCAP::CloudController
         def self.it_notifies_dea
           it "notifies dea of start and update" do
             DeaClient.should_receive(:start).with(subject)
-            CfMessageBus::MessageBus.instance.should_receive(:publish).with(
+            CfMessageBus::MessageBus.should_receive(:publish).with(
               "droplet.updated",
               json_match(hash_including(
                 "droplet" => subject.guid,

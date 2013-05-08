@@ -184,12 +184,10 @@ module VCAP::CloudController::SpecHelper
 
   def configure_components(config)
     VCAP::CloudController::Config.db_encryption_key = "some-key"
-    mbus = MockMessageBus.new(config)
-    CfMessageBus::MessageBus.instance = mbus
+    mbus = MockMessageBus.configure(config)
 
     # FIXME: this is better suited for a before-each stub so that we can unstub it in examples
-    VCAP::CloudController::Models::ServiceInstance.gateway_client_class =
-      VCAP::Services::Api::ServiceGatewayClientFake
+    VCAP::CloudController::Models::ServiceInstance.gateway_client_class = VCAP::Services::Api::ServiceGatewayClientFake
 
     VCAP::CloudController::AccountCapacity.configure(config)
     VCAP::CloudController::ResourcePool.instance =
@@ -522,6 +520,10 @@ RSpec.configure do |rspec_config|
   rspec_config.before(:all) do
     VCAP::CloudController::SecurityContext.clear
     configure
+  end
+
+  rspec_config.before do
+    stub_const("CfMessageBus::MessageBus", MockMessageBus)
   end
 end
 

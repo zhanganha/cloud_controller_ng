@@ -2,8 +2,8 @@
 class MultiResponseNatsRequest
   class Error < StandardError; end
 
-  def initialize(nats, subject)
-    @nats = nats
+  def initialize(message_bus, subject)
+    @message_bus = message_bus
     @subject = subject
     @responses = []
     @response_timeouts = []
@@ -18,7 +18,7 @@ class MultiResponseNatsRequest
     raise ArgumentError, "at least one callback must be provided" if @responses.empty?
     raise ArgumentError, "request was already made" if @sid
 
-    @sid = @nats.request(@subject, Yajl.dump(data)) do |response|
+    @sid = @message_bus.request(@subject, Yajl.dump(data)) do |response|
       handle_received_response(response)
     end
 
@@ -70,7 +70,7 @@ class MultiResponseNatsRequest
 
   def unsubscribe
     logger.info "unsubscribe: sid=#{@sid}"
-    @nats.unsubscribe(@sid)
+    @message_bus.unsubscribe(@sid)
   end
 
   def logger
